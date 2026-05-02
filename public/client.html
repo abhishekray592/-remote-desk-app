@@ -1,0 +1,644 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Techsara – Start Support Session</title>
+<script src="/socket.io/socket.io.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap');
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0a0e1a;
+    --surface: #111827;
+    --surface2: #1a2235;
+    --border: #1e2d45;
+    --accent: #00d4ff;
+    --accent2: #0099bb;
+    --green: #00e5a0;
+    --red: #ff4d6d;
+    --text: #e2e8f0;
+    --muted: #64748b;
+    --mono: 'IBM Plex Mono', monospace;
+    --sans: 'IBM Plex Sans', sans-serif;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    background-image:
+      radial-gradient(ellipse 80% 50% at 50% -20%, rgba(0,212,255,0.07) 0%, transparent 60%),
+      linear-gradient(180deg, #0a0e1a 0%, #060912 100%);
+  }
+
+  .container {
+    width: 100%;
+    max-width: 520px;
+  }
+
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 40px;
+  }
+
+  .logo-icon {
+    width: 36px; height: 36px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+  }
+
+  .logo-text {
+    font-family: var(--mono);
+    font-weight: 600;
+    font-size: 20px;
+    letter-spacing: -0.5px;
+  }
+
+  .logo-text span { color: var(--accent); }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 36px;
+    margin-bottom: 16px;
+  }
+
+  h1 {
+    font-size: 22px;
+    font-weight: 600;
+    margin-bottom: 8px;
+    line-height: 1.3;
+  }
+
+  .subtitle {
+    color: var(--muted);
+    font-size: 14px;
+    line-height: 1.6;
+    margin-bottom: 28px;
+  }
+
+  .steps {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-bottom: 28px;
+  }
+
+  .step {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 14px;
+    background: var(--surface2);
+    border-radius: 10px;
+    border: 1px solid var(--border);
+  }
+
+  .step-num {
+    width: 24px; height: 24px;
+    background: rgba(0,212,255,0.1);
+    border: 1px solid rgba(0,212,255,0.3);
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--accent);
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+
+  .step-text { font-size: 13.5px; line-height: 1.5; color: #94a3b8; }
+  .step-text strong { color: var(--text); }
+
+  .btn {
+    width: 100%;
+    padding: 16px;
+    border: none;
+    border-radius: 10px;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-family: var(--sans);
+    letter-spacing: 0.3px;
+  }
+
+  .btn-primary {
+    background: linear-gradient(135deg, var(--accent) 0%, var(--accent2) 100%);
+    color: #000;
+  }
+  .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 8px 24px rgba(0,212,255,0.25); }
+  .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+  .btn-danger {
+    background: rgba(255,77,109,0.1);
+    border: 1px solid rgba(255,77,109,0.3);
+    color: var(--red);
+    margin-top: 10px;
+  }
+  .btn-danger:hover { background: rgba(255,77,109,0.2); }
+
+  /* Session Active State */
+  #session-panel { display: none; }
+
+  .code-display {
+    text-align: center;
+    padding: 28px;
+    background: var(--surface2);
+    border-radius: 12px;
+    border: 1px dashed var(--accent);
+    margin-bottom: 24px;
+  }
+
+  .code-label {
+    font-size: 12px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    margin-bottom: 12px;
+  }
+
+  .code-value {
+    font-family: var(--mono);
+    font-size: 44px;
+    font-weight: 600;
+    color: var(--accent);
+    letter-spacing: 8px;
+    line-height: 1;
+    cursor: pointer;
+    transition: opacity 0.2s;
+  }
+  .code-value:hover { opacity: 0.8; }
+
+  .code-hint {
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: 10px;
+  }
+
+  .status-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 16px;
+    border-radius: 8px;
+    font-size: 13px;
+    margin-bottom: 16px;
+  }
+
+  .status-waiting {
+    background: rgba(251,191,36,0.08);
+    border: 1px solid rgba(251,191,36,0.2);
+    color: #fbbf24;
+  }
+
+  .status-connected {
+    background: rgba(0,229,160,0.08);
+    border: 1px solid rgba(0,229,160,0.2);
+    color: var(--green);
+  }
+
+  .dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: currentColor;
+    flex-shrink: 0;
+  }
+
+  .dot.pulse {
+    animation: pulse 1.5s ease infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+  }
+
+  /* Chat */
+  .chat-section { margin-top: 20px; }
+  .chat-title {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--muted);
+    margin-bottom: 10px;
+  }
+
+  .chat-messages {
+    height: 160px;
+    overflow-y: auto;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px;
+    font-size: 13px;
+    margin-bottom: 10px;
+    scroll-behavior: smooth;
+  }
+
+  .msg { margin-bottom: 8px; line-height: 1.4; }
+  .msg .who { font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; margin-right: 6px; }
+  .msg.from-me .who { color: var(--accent); }
+  .msg.from-peer .who { color: var(--green); }
+  .msg.system { color: var(--muted); font-style: italic; }
+
+  .chat-input-row {
+    display: flex;
+    gap: 8px;
+  }
+
+  .chat-input {
+    flex: 1;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 14px;
+    color: var(--text);
+    font-size: 13px;
+    font-family: var(--sans);
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  .chat-input:focus { border-color: var(--accent); }
+
+  .btn-send {
+    padding: 10px 18px;
+    background: var(--accent);
+    color: #000;
+    border: none;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 13px;
+    cursor: pointer;
+    font-family: var(--sans);
+    transition: opacity 0.2s;
+  }
+  .btn-send:hover { opacity: 0.85; }
+
+  .privacy-note {
+    font-size: 12px;
+    color: var(--muted);
+    text-align: center;
+    line-height: 1.5;
+  }
+
+  .privacy-note a { color: var(--accent); text-decoration: none; }
+
+  /* Preview */
+  .screen-preview {
+    width: 100%;
+    aspect-ratio: 16/9;
+    background: #050810;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--muted);
+    font-size: 13px;
+    margin-bottom: 16px;
+    overflow: hidden;
+    position: relative;
+  }
+
+  #localVideo {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+  }
+
+  .preview-label {
+    position: absolute;
+    top: 8px; left: 8px;
+    background: rgba(0,0,0,0.7);
+    color: var(--muted);
+    font-size: 11px;
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-family: var(--mono);
+  }
+
+  .timer {
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--muted);
+    text-align: right;
+    margin-bottom: 10px;
+  }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <div class="logo">
+    <div class="logo-icon">🖥</div>
+    <div class="logo-text">Tech<span>sara</span></div>
+  </div>
+
+  <!-- BEFORE SESSION -->
+  <div id="start-panel" class="card">
+    <h1>Share Your Screen for Support</h1>
+    <p class="subtitle">Your IT support team will guide you through fixing the issue. Your session is private and ends when you click Stop.</p>
+
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-text"><strong>Click "Start Session"</strong> — a 6-digit code will appear on your screen.</div>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-text"><strong>Share the code</strong> with your IT support agent over phone or chat.</div>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-text"><strong>Click Allow</strong> when your browser asks for screen sharing permission.</div>
+      </div>
+    </div>
+
+    <button class="btn btn-primary" id="startBtn" onclick="startSession()">🔴 Start Support Session</button>
+  </div>
+
+  <!-- ACTIVE SESSION -->
+  <div id="session-panel">
+    <div class="card">
+      <div class="code-display">
+        <div class="code-label">Your Session Code — Tell this to your support agent</div>
+        <div class="code-value" id="codeDisplay" onclick="copyCode()" title="Click to copy">------</div>
+        <div class="code-hint">📋 Click to copy</div>
+      </div>
+
+      <div class="status-bar status-waiting" id="statusBar">
+        <div class="dot pulse"></div>
+        <span id="statusText">Waiting for support agent to connect…</span>
+      </div>
+
+      <div class="timer" id="timer" style="display:none">Session duration: <span id="timerVal">00:00</span></div>
+      <div class="timer" id="helperStatus" style="color:#64748b">⬤ Helper: checking…</div>
+
+      <div class="screen-preview" id="previewBox">
+        <video id="localVideo" autoplay muted playsinline></video>
+        <div class="preview-label">YOUR SCREEN (preview)</div>
+        <span id="previewMsg" style="display:none">Screen sharing not started</span>
+      </div>
+
+      <div class="chat-section">
+        <div class="chat-title">💬 Chat with Support</div>
+        <div class="chat-messages" id="chatMessages">
+          <div class="msg system">Session started. Waiting for support agent…</div>
+        </div>
+        <div class="chat-input-row">
+          <input class="chat-input" id="chatInput" placeholder="Type a message…" onkeydown="if(event.key==='Enter') sendChat()">
+          <button class="btn-send" onclick="sendChat()">Send</button>
+        </div>
+      </div>
+
+      <button class="btn btn-danger" onclick="endSession()">⏹ End Session</button>
+    </div>
+  </div>
+
+  <p class="privacy-note">🔒 Screen sharing is encrypted peer-to-peer. Your support agent can only view your screen during the session. You can end at any time.</p>
+</div>
+
+<script>
+  // ── CONFIG ─────────────────────────────────────────────────────────────────
+  const SERVER_URL = window.location.origin; // auto-detects from URL
+
+  const STUN_SERVERS = [
+    { urls: 'stun:stun.l.google.com:19302' },
+    { urls: 'stun:stun1.l.google.com:19302' },
+    { urls: 'stun:stun.cloudflare.com:3478' }
+  ];
+
+  // ── STATE ──────────────────────────────────────────────────────────────────
+  let socket, peerConn, localStream, sessionCode;
+  let timerInterval, sessionStart;
+  let helperWs = null, helperReady = false;
+
+  // ── SOCKET SETUP ──────────────────────────────────────────────────────────
+  function initSocket() {
+    socket = io(SERVER_URL);
+
+    socket.on('session-created', ({ code }) => {
+      sessionCode = code;
+      document.getElementById('codeDisplay').textContent = code;
+      // localStream is already set — screen share was obtained before session creation
+    });
+
+    socket.on('support-joined', () => {
+      setStatus('connected', '🟢 Support agent connected. Establishing stream…');
+      startTimer();
+      startWebRTC();
+    });
+
+    socket.on('webrtc-answer', async ({ answer }) => {
+      if (peerConn) await peerConn.setRemoteDescription(new RTCSessionDescription(answer));
+    });
+
+    socket.on('webrtc-ice', async ({ candidate }) => {
+      if (peerConn && candidate) {
+        try { await peerConn.addIceCandidate(new RTCIceCandidate(candidate)); } catch (e) {}
+      }
+    });
+
+    socket.on('chat', ({ text, from, time }) => {
+      addChatMsg(text, 'from-peer', `Support (${time})`);
+    });
+
+    socket.on('peer-disconnected', () => {
+      setStatus('waiting', '⚠️ Support agent disconnected.');
+      addChatMsg('Support agent has left the session.', 'system');
+    });
+
+    socket.on('session-ended-by-support', () => {
+      addChatMsg('Session was ended by the support agent.', 'system');
+      endSession();
+    });
+
+    // Forward remote control events to the local helper process
+    socket.on('remote-event', ({ event }) => {
+      if (helperReady && helperWs && helperWs.readyState === WebSocket.OPEN) {
+        helperWs.send(JSON.stringify(event));
+      }
+    });
+
+    // Clipboard from support → set OS clipboard via helper
+    socket.on('clipboard-sync', ({ text }) => {
+      if (helperReady && helperWs && helperWs.readyState === WebSocket.OPEN) {
+        helperWs.send(JSON.stringify({ type: 'clipboard-to-os', text }));
+      }
+    });
+  }
+
+  // ── LOCAL HELPER CONNECTION ────────────────────────────────────────────────
+  function connectHelper() {
+    try {
+      helperWs = new WebSocket('ws://localhost:3001');
+      helperWs.onopen = () => {
+        helperReady = true;
+        document.getElementById('helperStatus').textContent = '⬤ Helper: connected — remote control ready';
+        document.getElementById('helperStatus').style.color = '#00e5a0';
+      };
+      helperWs.onmessage = (e) => {
+        try {
+          const msg = JSON.parse(e.data);
+          // OS clipboard changed on this machine → forward to support agent
+          if (msg.type === 'clipboard-from-os' && socket && sessionCode) {
+            socket.emit('clipboard-sync', { code: sessionCode, text: msg.text });
+          }
+        } catch (_) {}
+      };
+      helperWs.onclose = () => {
+        helperReady = false;
+        document.getElementById('helperStatus').textContent = '⬤ Helper: not running — remote control disabled';
+        document.getElementById('helperStatus').style.color = '#ff4d6d';
+        setTimeout(connectHelper, 5000);
+      };
+      helperWs.onerror = () => { helperReady = false; };
+    } catch (e) {}
+  }
+
+  // Start helper connection immediately on page load
+  connectHelper();
+
+  // ── SESSION CONTROL ────────────────────────────────────────────────────────
+  async function startSession() {
+    const btn = document.getElementById('startBtn');
+    btn.disabled = true;
+    btn.textContent = '⏳ Requesting screen access…';
+
+    // Request screen share FIRST while still in user-gesture context.
+    // This guarantees localStream is ready before any support agent can join.
+    try {
+      localStream = await navigator.mediaDevices.getDisplayMedia({
+        video: { frameRate: 15, width: { ideal: 1920 }, height: { ideal: 1080 } },
+        audio: false
+      });
+      document.getElementById('localVideo').srcObject = localStream;
+      localStream.getVideoTracks()[0].onended = () => endSession();
+    } catch (err) {
+      btn.disabled = false;
+      btn.textContent = '🔴 Start Support Session';
+      addChatMsg('❌ Screen share was cancelled or denied. Please try again and click "Share" when prompted.', 'system');
+      document.getElementById('start-panel').style.display = 'block';
+      document.getElementById('session-panel').style.display = 'none';
+      return;
+    }
+
+    btn.textContent = '⏳ Creating session…';
+    document.getElementById('start-panel').style.display = 'none';
+    document.getElementById('session-panel').style.display = 'block';
+    initSocket();
+    socket.emit('create-session');
+  }
+
+  async function startWebRTC() {
+    if (!localStream) {
+      addChatMsg('❌ No screen stream available. Please end and restart the session.', 'system');
+      return;
+    }
+
+    peerConn = new RTCPeerConnection({ iceServers: STUN_SERVERS });
+
+    localStream.getTracks().forEach(track => peerConn.addTrack(track, localStream));
+
+    peerConn.onicecandidate = ({ candidate }) => {
+      if (candidate) socket.emit('webrtc-ice', { code: sessionCode, candidate });
+    };
+
+    peerConn.onconnectionstatechange = () => {
+      const state = peerConn.connectionState;
+      if (state === 'connected') {
+        setStatus('connected', '🟢 Live — Support agent is viewing your screen');
+      } else if (state === 'failed') {
+        setStatus('waiting', '❌ Connection failed — ask support to reconnect');
+        addChatMsg('WebRTC connection failed. Support agent may need to reconnect.', 'system');
+      } else if (state === 'disconnected') {
+        setStatus('waiting', '⚠️ Connection interrupted…');
+      }
+    };
+
+    try {
+      const offer = await peerConn.createOffer();
+      await peerConn.setLocalDescription(offer);
+      socket.emit('webrtc-offer', { code: sessionCode, offer });
+    } catch (err) {
+      addChatMsg('❌ Failed to create connection offer: ' + err.message, 'system');
+    }
+  }
+
+  function endSession() {
+    if (localStream) localStream.getTracks().forEach(t => t.stop());
+    if (peerConn) peerConn.close();
+    if (socket) socket.disconnect();
+    clearInterval(timerInterval);
+    document.getElementById('session-panel').style.display = 'none';
+    document.getElementById('start-panel').style.display = 'block';
+    document.getElementById('startBtn').disabled = false;
+    document.getElementById('startBtn').textContent = '🔴 Start Support Session';
+    addChatMsg('Session ended.', 'system');
+  }
+
+  // ── HELPERS ────────────────────────────────────────────────────────────────
+  function setStatus(type, text) {
+    const bar = document.getElementById('statusBar');
+    bar.className = 'status-bar status-' + type;
+    document.getElementById('statusText').textContent = text;
+    const dot = bar.querySelector('.dot');
+    dot.classList.toggle('pulse', type === 'waiting');
+  }
+
+  function copyCode() {
+    navigator.clipboard.writeText(sessionCode).then(() => {
+      const el = document.getElementById('codeDisplay');
+      el.textContent = 'COPIED!';
+      setTimeout(() => el.textContent = sessionCode, 1500);
+    });
+  }
+
+  function addChatMsg(text, cls, who) {
+    const box = document.getElementById('chatMessages');
+    const div = document.createElement('div');
+    div.className = `msg ${cls}`;
+    if (who) div.innerHTML = `<span class="who">${who}</span>${text}`;
+    else div.textContent = text;
+    box.appendChild(div);
+    box.scrollTop = box.scrollHeight;
+  }
+
+  function sendChat() {
+    const input = document.getElementById('chatInput');
+    const text = input.value.trim();
+    if (!text || !socket || !sessionCode) return;
+    socket.emit('chat', { code: sessionCode, text, from: 'client' });
+    addChatMsg(text, 'from-me', 'You');
+    input.value = '';
+  }
+
+  function startTimer() {
+    sessionStart = Date.now();
+    document.getElementById('timer').style.display = 'block';
+    timerInterval = setInterval(() => {
+      const s = Math.floor((Date.now() - sessionStart) / 1000);
+      const m = Math.floor(s / 60).toString().padStart(2, '0');
+      const sec = (s % 60).toString().padStart(2, '0');
+      document.getElementById('timerVal').textContent = `${m}:${sec}`;
+    }, 1000);
+  }
+</script>
+</body>
+</html>

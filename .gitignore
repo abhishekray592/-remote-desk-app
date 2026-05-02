@@ -1,0 +1,20 @@
+node_modules/
+npm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editor / tooling
+.vscode/
+.idea/
+.claude/
+*.swp
+
+# Env / secrets
+.env
+.env.*
+
+# Logs
+*.log

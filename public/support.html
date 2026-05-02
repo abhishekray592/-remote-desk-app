@@ -1,0 +1,960 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Techsara – Support Dashboard</title>
+<script src="/socket.io/socket.io.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@300;400;500;600;700&display=swap');
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #07090f;
+    --surface: #0d1117;
+    --surface2: #161b22;
+    --surface3: #1c2333;
+    --border: #21262d;
+    --accent: #58a6ff;
+    --accent2: #1f6feb;
+    --green: #3fb950;
+    --red: #f85149;
+    --yellow: #e3b341;
+    --text: #c9d1d9;
+    --text-dim: #8b949e;
+    --mono: 'IBM Plex Mono', monospace;
+    --sans: 'IBM Plex Sans', sans-serif;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    min-height: 100vh;
+    overflow: hidden;
+  }
+
+  /* ── TOP BAR ── */
+  .topbar {
+    height: 52px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    padding: 0 20px;
+    gap: 16px;
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    z-index: 100;
+  }
+
+  .logo { display: flex; align-items: center; gap: 8px; margin-right: auto; }
+  .logo-icon {
+    width: 28px; height: 28px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px;
+  }
+  .logo-name {
+    font-family: var(--mono);
+    font-weight: 600;
+    font-size: 16px;
+    color: var(--text);
+  }
+  .logo-name span { color: var(--accent); }
+  .badge-support {
+    font-size: 10px;
+    background: rgba(88,166,255,0.12);
+    border: 1px solid rgba(88,166,255,0.25);
+    color: var(--accent);
+    padding: 2px 8px;
+    border-radius: 20px;
+    font-family: var(--mono);
+    letter-spacing: 0.5px;
+  }
+
+  .topbar-stat {
+    font-size: 12px;
+    color: var(--text-dim);
+    font-family: var(--mono);
+  }
+
+  .indicator {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 12px;
+    font-family: var(--mono);
+  }
+  .dot { width: 7px; height: 7px; border-radius: 50%; }
+  .dot.green { background: var(--green); box-shadow: 0 0 6px var(--green); }
+  .dot.yellow { background: var(--yellow); }
+  .dot.red { background: var(--red); }
+  .dot.pulse { animation: pulse 1.5s ease infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+  /* ── MAIN LAYOUT ── */
+  .layout {
+    display: grid;
+    grid-template-columns: 1fr 320px;
+    grid-template-rows: 1fr;
+    height: calc(100vh - 52px);
+    margin-top: 52px;
+  }
+
+  /* ── VIEWER PANE ── */
+  .viewer-pane {
+    display: flex;
+    flex-direction: column;
+    background: #000;
+    position: relative;
+    overflow: hidden;
+  }
+
+  #remoteVideo {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    display: none;
+  }
+
+  .viewer-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    gap: 16px;
+    color: var(--text-dim);
+  }
+
+  .viewer-empty .big-icon { font-size: 64px; opacity: 0.3; }
+  .viewer-empty h2 { font-size: 18px; font-weight: 500; color: #4a5568; }
+  .viewer-empty p { font-size: 13px; color: #374151; max-width: 300px; text-align: center; line-height: 1.6; }
+
+  /* Toolbar overlay */
+  .viewer-toolbar {
+    position: absolute;
+    top: 12px; left: 50%; transform: translateX(-50%);
+    background: rgba(13,17,23,0.9);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 6px 12px;
+    display: none;
+    align-items: center;
+    gap: 12px;
+    backdrop-filter: blur(10px);
+    z-index: 10;
+  }
+
+  .viewer-toolbar.show { display: flex; }
+
+  .tb-btn {
+    background: none;
+    border: none;
+    color: var(--text-dim);
+    cursor: pointer;
+    font-size: 18px;
+    padding: 4px;
+    border-radius: 6px;
+    transition: all 0.15s;
+    font-family: var(--sans);
+  }
+  .tb-btn:hover { background: var(--surface2); color: var(--text); }
+  .tb-btn.active { color: var(--accent); }
+
+  .tb-sep { width: 1px; height: 20px; background: var(--border); }
+
+  .tb-label {
+    font-size: 11px;
+    color: var(--text-dim);
+    font-family: var(--mono);
+  }
+
+  /* ── SIDEBAR ── */
+  .sidebar {
+    background: var(--surface);
+    border-left: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* Connect panel */
+  .connect-panel {
+    padding: 20px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .panel-title {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--text-dim);
+    margin-bottom: 14px;
+    font-family: var(--mono);
+  }
+
+  .code-input-row {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+
+  .code-input {
+    flex: 1;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 14px;
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 18px;
+    font-weight: 600;
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    outline: none;
+    transition: border-color 0.2s;
+    width: 0;
+  }
+
+  .code-input:focus { border-color: var(--accent); }
+  .code-input::placeholder { font-size: 14px; letter-spacing: 0; font-weight: 400; color: #374151; }
+
+  .btn-connect {
+    padding: 10px 16px;
+    background: var(--accent2);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: var(--sans);
+    transition: background 0.2s;
+    white-space: nowrap;
+  }
+  .btn-connect:hover { background: var(--accent); }
+  .btn-connect:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .btn-disconnect {
+    width: 100%;
+    padding: 9px;
+    background: rgba(248,81,73,0.1);
+    border: 1px solid rgba(248,81,73,0.2);
+    color: var(--red);
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: var(--sans);
+    transition: background 0.2s;
+    display: none;
+  }
+  .btn-disconnect:hover { background: rgba(248,81,73,0.2); }
+
+  .error-msg {
+    font-size: 12px;
+    color: var(--red);
+    display: none;
+    margin-top: 6px;
+  }
+
+  /* Session info */
+  .session-info {
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+    display: none;
+  }
+
+  .info-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+  }
+
+  .info-label { font-size: 11px; color: var(--text-dim); }
+  .info-val { font-size: 13px; font-family: var(--mono); color: var(--text); }
+  .info-val.green { color: var(--green); }
+  .info-val.yellow { color: var(--yellow); }
+
+  /* Stats row */
+  .stats-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-top: 4px;
+  }
+
+  .stat-card {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px;
+  }
+
+  .stat-num { font-size: 20px; font-family: var(--mono); font-weight: 600; }
+  .stat-lbl { font-size: 11px; color: var(--text-dim); margin-top: 2px; }
+
+  /* Chat */
+  .chat-section {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+
+  .chat-header {
+    padding: 12px 20px;
+    border-bottom: 1px solid var(--border);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--text-dim);
+    font-family: var(--mono);
+  }
+
+  .chat-messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    scroll-behavior: smooth;
+  }
+
+  .chat-messages::-webkit-scrollbar { width: 4px; }
+  .chat-messages::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  .msg {
+    max-width: 100%;
+    font-size: 13px;
+    line-height: 1.5;
+  }
+
+  .msg .bubble {
+    display: inline-block;
+    padding: 8px 12px;
+    border-radius: 10px;
+    max-width: 100%;
+    word-break: break-word;
+  }
+
+  .msg .meta {
+    font-size: 10px;
+    color: var(--text-dim);
+    margin-bottom: 3px;
+    font-family: var(--mono);
+  }
+
+  .msg.from-me { text-align: right; }
+  .msg.from-me .bubble { background: var(--accent2); color: #fff; border-bottom-right-radius: 3px; }
+
+  .msg.from-peer .bubble { background: var(--surface2); color: var(--text); border-bottom-left-radius: 3px; border: 1px solid var(--border); }
+
+  .msg.system { text-align: center; }
+  .msg.system .bubble { background: none; color: var(--text-dim); font-size: 12px; font-style: italic; }
+
+  .chat-footer {
+    padding: 12px;
+    border-top: 1px solid var(--border);
+  }
+
+  .chat-input-row { display: flex; gap: 8px; }
+
+  .chat-input {
+    flex: 1;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 9px 12px;
+    color: var(--text);
+    font-size: 13px;
+    font-family: var(--sans);
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .chat-input:focus { border-color: var(--accent); }
+
+  .btn-send {
+    padding: 9px 14px;
+    background: var(--accent2);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    font-size: 13px;
+    cursor: pointer;
+    font-family: var(--sans);
+    transition: background 0.2s;
+  }
+  .btn-send:hover { background: var(--accent); }
+
+  /* Fullscreen */
+  .viewer-pane:fullscreen #remoteVideo { object-fit: contain; width: 100vw; height: 100vh; }
+
+  /* Zoom */
+  #remoteVideo { cursor: default; }
+
+  /* Remote control */
+  #remoteVideo.control-active { cursor: default; user-select: none; }
+
+  .control-badge {
+    position: absolute;
+    bottom: 14px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(248,81,73,0.92);
+    color: #fff;
+    padding: 5px 16px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-family: var(--mono);
+    letter-spacing: 0.5px;
+    display: none;
+    pointer-events: none;
+    z-index: 20;
+  }
+  .control-badge.show { display: block; }
+
+  /* Notification toast */
+  .toast {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--surface3);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 10px 20px;
+    border-radius: 8px;
+    font-size: 13px;
+    z-index: 999;
+    opacity: 0;
+    transition: opacity 0.3s;
+    pointer-events: none;
+  }
+  .toast.show { opacity: 1; }
+</style>
+</head>
+<body>
+
+<!-- TOP BAR -->
+<div class="topbar">
+  <div class="logo">
+    <div class="logo-icon">🖥</div>
+    <div class="logo-name">Tech<span>sara</span></div>
+    <div class="badge-support">SUPPORT AGENT</div>
+  </div>
+  <div class="indicator">
+    <div class="dot yellow pulse" id="serverDot"></div>
+    <span id="serverStatus" class="topbar-stat">Connecting…</span>
+  </div>
+  <div class="topbar-stat" id="sessionTimer" style="display:none">⏱ <span id="timerVal">00:00</span></div>
+</div>
+
+<!-- MAIN LAYOUT -->
+<div class="layout">
+
+  <!-- VIEWER -->
+  <div class="viewer-pane" id="viewerPane">
+    <div class="viewer-empty" id="viewerEmpty">
+      <div class="big-icon">🖥</div>
+      <h2>No Active Session</h2>
+      <p>Enter a client's session code in the sidebar to start viewing their screen.</p>
+    </div>
+
+    <video id="remoteVideo" autoplay playsinline></video>
+
+    <div class="viewer-toolbar" id="viewerToolbar">
+      <span class="tb-label" id="tbSession">---</span>
+      <div class="tb-sep"></div>
+      <button class="tb-btn" onclick="toggleFullscreen()" title="Fullscreen">⛶</button>
+      <button class="tb-btn" onclick="takeScreenshot()" title="Screenshot">📷</button>
+      <div class="tb-sep"></div>
+      <button class="tb-btn" id="controlToggle" onclick="toggleControl()" title="Remote Control (click to enable/disable)">🖱</button>
+      <div class="tb-sep"></div>
+      <button class="tb-btn" onclick="manualClipboardSync()" title="Sync clipboard now (push my clipboard to client)">📋</button>
+      <div class="tb-sep"></div>
+      <span class="tb-label" id="qualityLabel">HD</span>
+    </div>
+
+    <div class="control-badge" id="controlBadge">🖱 REMOTE CONTROL ACTIVE — Press ESC to exit</div>
+  </div>
+
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+
+    <!-- Connect panel -->
+    <div class="connect-panel">
+      <div class="panel-title">Connect to Client</div>
+      <div class="code-input-row">
+        <input class="code-input" id="codeInput" placeholder="Enter code…" maxlength="6" oninput="this.value=this.value.toUpperCase()">
+        <button class="btn-connect" id="connectBtn" onclick="connectSession()">Connect</button>
+      </div>
+      <div class="error-msg" id="errMsg"></div>
+      <button class="btn-disconnect" id="disconnectBtn" onclick="disconnectSession()">⏹ End Session</button>
+    </div>
+
+    <!-- Session info (shown when active) -->
+    <div class="session-info" id="sessionInfo">
+      <div class="panel-title">Session Info</div>
+      <div class="info-row">
+        <span class="info-label">Status</span>
+        <span class="info-val green" id="connStatus">Connecting…</span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">Session Code</span>
+        <span class="info-val" id="activeCode">------</span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">Stream Quality</span>
+        <span class="info-val" id="streamQuality">—</span>
+      </div>
+      <div class="stats-row">
+        <div class="stat-card">
+          <div class="stat-num" id="statFps">—</div>
+          <div class="stat-lbl">Frames/sec</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-num" id="statRes">—</div>
+          <div class="stat-lbl">Resolution</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Chat -->
+    <div class="chat-section">
+      <div class="chat-header">💬 Chat with Client</div>
+      <div class="chat-messages" id="chatMessages">
+        <div class="msg system"><div class="bubble">Connect to a session to start chatting</div></div>
+      </div>
+      <div class="chat-footer">
+        <div class="chat-input-row">
+          <input class="chat-input" id="chatInput" placeholder="Type a message…" onkeydown="if(event.key==='Enter') sendChat()">
+          <button class="btn-send" onclick="sendChat()">↑</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  const SERVER_URL = window.location.origin;
+  const STUN_SERVERS = [
+    { urls: 'stun:stun.l.google.com:19302' },
+    { urls: 'stun:stun1.l.google.com:19302' },
+    { urls: 'stun:stun.cloudflare.com:3478' }
+  ];
+
+  let socket, peerConn, sessionCode;
+  let timerInterval, sessionStart, statsInterval;
+
+  // ── SOCKET ─────────────────────────────────────────────────────────────────
+  function initSocket() {
+    socket = io(SERVER_URL);
+
+    socket.on('connect', () => {
+      setServerStatus(true);
+    });
+
+    socket.on('disconnect', () => {
+      setServerStatus(false);
+    });
+
+    socket.on('session-joined', ({ code }) => {
+      sessionCode = code;
+      document.getElementById('activeCode').textContent = code;
+      document.getElementById('tbSession').textContent = `Session: ${code}`;
+      document.getElementById('connStatus').textContent = 'Waiting for stream…';
+      addChat('Joined session. Waiting for client to share screen…', 'system');
+    });
+
+    socket.on('join-error', ({ message }) => {
+      showError(message);
+      document.getElementById('connectBtn').disabled = false;
+      document.getElementById('connectBtn').textContent = 'Connect';
+    });
+
+    // Receive WebRTC offer from client
+    socket.on('webrtc-offer', async ({ offer }) => {
+      await handleOffer(offer);
+    });
+
+    socket.on('webrtc-ice', async ({ candidate }) => {
+      if (peerConn && candidate) {
+        try { await peerConn.addIceCandidate(new RTCIceCandidate(candidate)); } catch (e) {}
+      }
+    });
+
+    socket.on('chat', ({ text, from, time }) => {
+      addChat(text, 'from-peer', `Client (${time})`);
+      showToast(`Client: ${text}`);
+    });
+
+    socket.on('peer-disconnected', () => {
+      addChat('Client ended the session.', 'system');
+      setConnStatus('⚠️ Client disconnected', false);
+      stopSession();
+      showToast('⚠️ Client disconnected');
+    });
+
+    // Clipboard from client → write to support's clipboard
+    socket.on('clipboard-sync', async ({ text }) => {
+      if (text === lastClipboard) return;
+      lastClipboard = text;
+      try {
+        await navigator.clipboard.writeText(text);
+        showToast('📋 Clipboard synced from client (' + text.length + ' chars)');
+      } catch (e) {
+        console.warn('clipboard write failed:', e.message);
+      }
+    });
+  }
+
+  // ── CLIPBOARD SYNC ─────────────────────────────────────────────────────────
+  let lastClipboard = '';
+  let clipboardPollErrors = 0;
+
+  async function pollClipboard() {
+    if (!sessionCode || !socket) return;
+    if (!document.hasFocus()) return;
+    try {
+      const text = await navigator.clipboard.readText();
+      clipboardPollErrors = 0;
+      if (text && text !== lastClipboard) {
+        lastClipboard = text;
+        socket.emit('clipboard-sync', { code: sessionCode, text });
+      }
+    } catch (e) {
+      // Permission denied / not focused / not in secure context — fail quietly
+      if (++clipboardPollErrors === 1) {
+        console.warn('clipboard read unavailable:', e.message);
+      }
+    }
+  }
+  setInterval(pollClipboard, 1500);
+
+  async function manualClipboardSync() {
+    if (!sessionCode || !socket) { showToast('Connect to a session first'); return; }
+    try {
+      const text = await navigator.clipboard.readText();
+      if (!text) { showToast('Your clipboard is empty'); return; }
+      lastClipboard = text;
+      socket.emit('clipboard-sync', { code: sessionCode, text });
+      showToast('📋 Pushed ' + text.length + ' chars to client');
+    } catch (e) {
+      showToast('❌ Clipboard read failed — grant permission or use http://localhost');
+      console.warn('manual clipboard sync failed:', e);
+    }
+  }
+
+  // ── CONNECT ────────────────────────────────────────────────────────────────
+  function connectSession() {
+    const code = document.getElementById('codeInput').value.trim().toUpperCase();
+    if (code.length !== 6) { showError('Please enter the full 6-digit code.'); return; }
+
+    hideError();
+    document.getElementById('connectBtn').disabled = true;
+    document.getElementById('connectBtn').textContent = '…';
+
+    if (!socket || !socket.connected) initSocket();
+    socket.emit('join-session', { code });
+
+    document.getElementById('sessionInfo').style.display = 'block';
+    document.getElementById('disconnectBtn').style.display = 'block';
+    document.getElementById('codeInput').disabled = true;
+  }
+
+  async function handleOffer(offer) {
+    peerConn = new RTCPeerConnection({ iceServers: STUN_SERVERS });
+
+    peerConn.onicecandidate = ({ candidate }) => {
+      if (candidate) socket.emit('webrtc-ice', { code: sessionCode, candidate });
+    };
+
+    peerConn.ontrack = (event) => {
+      const video = document.getElementById('remoteVideo');
+      video.srcObject = event.streams[0];
+      video.style.display = 'block';
+      document.getElementById('viewerEmpty').style.display = 'none';
+      document.getElementById('viewerToolbar').classList.add('show');
+      setConnStatus('🟢 Live — Screen sharing active', true);
+      startTimer();
+      startStatsPolling(event.streams[0]);
+    };
+
+    peerConn.onconnectionstatechange = () => {
+      if (peerConn.connectionState === 'failed') {
+        addChat('Connection failed. Ask client to refresh and create a new session.', 'system');
+        setConnStatus('❌ Connection failed', false);
+      }
+    };
+
+    await peerConn.setRemoteDescription(new RTCSessionDescription(offer));
+    const answer = await peerConn.createAnswer();
+    await peerConn.setLocalDescription(answer);
+    socket.emit('webrtc-answer', { code: sessionCode, answer });
+  }
+
+  function disconnectSession() {
+    if (socket && sessionCode) socket.emit('end-session', { code: sessionCode });
+    stopSession();
+    addChat('You ended the session.', 'system');
+    if (socket) socket.disconnect();
+  }
+
+  function stopSession() {
+    if (peerConn) { peerConn.close(); peerConn = null; }
+    clearInterval(timerInterval);
+    clearInterval(statsInterval);
+
+    document.getElementById('remoteVideo').style.display = 'none';
+    document.getElementById('remoteVideo').srcObject = null;
+    document.getElementById('viewerEmpty').style.display = 'flex';
+    document.getElementById('viewerToolbar').classList.remove('show');
+    document.getElementById('sessionInfo').style.display = 'none';
+    document.getElementById('disconnectBtn').style.display = 'none';
+    document.getElementById('codeInput').disabled = false;
+    document.getElementById('codeInput').value = '';
+    document.getElementById('connectBtn').disabled = false;
+    document.getElementById('connectBtn').textContent = 'Connect';
+    document.getElementById('sessionTimer').style.display = 'none';
+  }
+
+  // ── STATS ──────────────────────────────────────────────────────────────────
+  function startStatsPolling(stream) {
+    const track = stream.getVideoTracks()[0];
+    if (!track) return;
+
+    statsInterval = setInterval(async () => {
+      if (!peerConn) return;
+      const stats = await peerConn.getStats();
+      stats.forEach(report => {
+        if (report.type === 'inbound-rtp' && report.mediaType === 'video') {
+          const fps = Math.round(report.framesPerSecond || 0);
+          const w = report.frameWidth || 0;
+          const h = report.frameHeight || 0;
+          document.getElementById('statFps').textContent = fps || '—';
+          document.getElementById('statRes').textContent = w ? `${w}×${h}` : '—';
+          document.getElementById('streamQuality').textContent = w >= 1280 ? 'HD' : w >= 640 ? 'SD' : 'Low';
+          document.getElementById('qualityLabel').textContent = w >= 1280 ? '🟢 HD' : '🟡 SD';
+        }
+      });
+    }, 2000);
+  }
+
+  // ── HELPERS ────────────────────────────────────────────────────────────────
+  function setServerStatus(ok) {
+    const dot = document.getElementById('serverDot');
+    const txt = document.getElementById('serverStatus');
+    dot.className = `dot ${ok ? 'green' : 'red'}`;
+    txt.textContent = ok ? 'Server connected' : 'Server offline';
+  }
+
+  function setConnStatus(text, isGood) {
+    const el = document.getElementById('connStatus');
+    el.textContent = text;
+    el.className = `info-val ${isGood ? 'green' : 'yellow'}`;
+  }
+
+  function addChat(text, cls, who) {
+    const box = document.getElementById('chatMessages');
+    const div = document.createElement('div');
+    div.className = `msg ${cls}`;
+    if (cls === 'system') {
+      div.innerHTML = `<div class="bubble">${text}</div>`;
+    } else {
+      div.innerHTML = `<div class="meta">${who || ''}</div><div class="bubble">${text}</div>`;
+    }
+    box.appendChild(div);
+    box.scrollTop = box.scrollHeight;
+  }
+
+  function sendChat() {
+    const input = document.getElementById('chatInput');
+    const text = input.value.trim();
+    if (!text || !socket || !sessionCode) return;
+    socket.emit('chat', { code: sessionCode, text, from: 'support' });
+    addChat(text, 'from-me', 'You');
+    input.value = '';
+  }
+
+  function showError(msg) {
+    const el = document.getElementById('errMsg');
+    el.textContent = '⚠ ' + msg;
+    el.style.display = 'block';
+  }
+
+  function hideError() {
+    document.getElementById('errMsg').style.display = 'none';
+  }
+
+  function startTimer() {
+    sessionStart = Date.now();
+    document.getElementById('sessionTimer').style.display = 'block';
+    timerInterval = setInterval(() => {
+      const s = Math.floor((Date.now() - sessionStart) / 1000);
+      const m = Math.floor(s / 60).toString().padStart(2, '0');
+      const sec = (s % 60).toString().padStart(2, '0');
+      document.getElementById('timerVal').textContent = `${m}:${sec}`;
+    }, 1000);
+  }
+
+  function toggleFullscreen() {
+    const pane = document.getElementById('viewerPane');
+    if (!document.fullscreenElement) pane.requestFullscreen();
+    else document.exitFullscreen();
+  }
+
+  function takeScreenshot() {
+    const video = document.getElementById('remoteVideo');
+    if (!video.srcObject) return;
+    const canvas = document.createElement('canvas');
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    canvas.getContext('2d').drawImage(video, 0, 0);
+    const a = document.createElement('a');
+    a.download = `screenshot-${sessionCode}-${Date.now()}.png`;
+    a.href = canvas.toDataURL('image/png');
+    a.click();
+    showToast('📷 Screenshot saved!');
+  }
+
+  function showToast(msg) {
+    const toast = document.getElementById('toast');
+    toast.textContent = msg;
+    toast.classList.add('show');
+    setTimeout(() => toast.classList.remove('show'), 3000);
+  }
+
+  // ── REMOTE CONTROL ─────────────────────────────────────────────────────────
+  let controlActive = false;
+  let lastMouseSent = 0;
+  const MOUSE_THROTTLE_MS = 16; // ~60 events/sec max
+
+  function toggleControl() {
+    if (!peerConn) { showToast('Connect to a session first'); return; }
+    controlActive = !controlActive;
+    const btn = document.getElementById('controlToggle');
+    const video = document.getElementById('remoteVideo');
+    const badge = document.getElementById('controlBadge');
+    btn.classList.toggle('active', controlActive);
+    video.classList.toggle('control-active', controlActive);
+    badge.classList.toggle('show', controlActive);
+
+    if (controlActive) {
+      video.addEventListener('mousemove', onCtrlMouseMove);
+      video.addEventListener('mousedown', onCtrlMouseDown);
+      video.addEventListener('mouseup', onCtrlMouseUp);
+      video.addEventListener('contextmenu', onCtrlContextMenu);
+      video.addEventListener('wheel', onCtrlWheel, { passive: false });
+      document.addEventListener('keydown', onCtrlKeyDown, true);
+      document.addEventListener('keyup', onCtrlKeyUp, true);
+      showToast('🖱 Remote control ON — click video to control client');
+    } else {
+      video.removeEventListener('mousemove', onCtrlMouseMove);
+      video.removeEventListener('mousedown', onCtrlMouseDown);
+      video.removeEventListener('mouseup', onCtrlMouseUp);
+      video.removeEventListener('contextmenu', onCtrlContextMenu);
+      video.removeEventListener('wheel', onCtrlWheel);
+      document.removeEventListener('keydown', onCtrlKeyDown, true);
+      document.removeEventListener('keyup', onCtrlKeyUp, true);
+      showToast('Remote control OFF');
+    }
+  }
+
+  // Map mouse event coordinates to normalized [0,1] within the video render area,
+  // accounting for letterbox/pillarbox from object-fit:contain.
+  function getVideoNormCoords(video, clientX, clientY) {
+    const rect = video.getBoundingClientRect();
+    const vw = video.videoWidth, vh = video.videoHeight;
+    const ew = rect.width, eh = rect.height;
+    if (!vw || !vh) return null;
+
+    const videoAR = vw / vh, elemAR = ew / eh;
+    let renderW, renderH, offsetX, offsetY;
+    if (videoAR > elemAR) {
+      renderW = ew;  renderH = ew / videoAR;
+      offsetX = 0;  offsetY = (eh - renderH) / 2;
+    } else {
+      renderH = eh;  renderW = eh * videoAR;
+      offsetX = (ew - renderW) / 2;  offsetY = 0;
+    }
+
+    const lx = clientX - rect.left, ly = clientY - rect.top;
+    if (lx < offsetX || lx > offsetX + renderW || ly < offsetY || ly > offsetY + renderH) return null;
+    return { nx: (lx - offsetX) / renderW, ny: (ly - offsetY) / renderH };
+  }
+
+  function sendRemoteEvent(event) {
+    if (!socket || !sessionCode) return;
+    socket.emit('remote-event', { code: sessionCode, event });
+  }
+
+  function onCtrlMouseMove(e) {
+    const now = Date.now();
+    if (now - lastMouseSent < MOUSE_THROTTLE_MS) return;
+    lastMouseSent = now;
+    const coords = getVideoNormCoords(this, e.clientX, e.clientY);
+    if (!coords) return;
+    sendRemoteEvent({ type: 'mousemove', nx: coords.nx, ny: coords.ny });
+  }
+
+  function onCtrlMouseDown(e) {
+    e.preventDefault();
+    const coords = getVideoNormCoords(this, e.clientX, e.clientY);
+    if (!coords) return;
+    sendRemoteEvent({ type: 'mousedown', nx: coords.nx, ny: coords.ny, button: e.button });
+  }
+
+  function onCtrlMouseUp(e) {
+    e.preventDefault();
+    const coords = getVideoNormCoords(this, e.clientX, e.clientY);
+    if (!coords) return;
+    sendRemoteEvent({ type: 'mouseup', nx: coords.nx, ny: coords.ny, button: e.button });
+  }
+
+  function onCtrlContextMenu(e) {
+    e.preventDefault();
+  }
+
+  function onCtrlWheel(e) {
+    e.preventDefault();
+    const coords = getVideoNormCoords(this, e.clientX, e.clientY);
+    if (!coords) return;
+    sendRemoteEvent({ type: 'wheel', nx: coords.nx, ny: coords.ny, deltaX: e.deltaX, deltaY: e.deltaY });
+  }
+
+  function onCtrlKeyDown(e) {
+    // Don't capture when typing in sidebar inputs
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+    if (e.key === 'Escape') { if (controlActive) toggleControl(); return; }
+    e.preventDefault();
+    e.stopPropagation();
+    sendRemoteEvent({
+      type: 'keydown', key: e.key, code: e.code,
+      ctrl: e.ctrlKey, shift: e.shiftKey, alt: e.altKey, meta: e.metaKey
+    });
+  }
+
+  function onCtrlKeyUp(e) {
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+    if (e.key === 'Escape') return;
+    e.preventDefault();
+    e.stopPropagation();
+    sendRemoteEvent({
+      type: 'keyup', key: e.key, code: e.code,
+      ctrl: e.ctrlKey, shift: e.shiftKey, alt: e.altKey, meta: e.metaKey
+    });
+  }
+
+  // Auto-init socket on load
+  initSocket();
+</script>
+</body>
+</html>
